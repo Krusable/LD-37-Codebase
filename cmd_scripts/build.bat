@@ -10,7 +10,7 @@ set libs=SDL2main.lib SDL2.lib
 set source_files=%src_dir%\ld_37.cpp
 set macros=
 set compiler_flags=/Zi /MD 
-set linker_flags=/SUBSYSTEM:WINDOWS
+set linker_flags=/SUBSYSTEM:CONSOLE
 set executable=ld_37.exe
 
 pushd bin
