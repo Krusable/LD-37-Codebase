@@ -6,7 +6,7 @@ cls
 set sdl_include=W:\dev\libs\SDL2_VS\include
 set src_dir=W:\dev\c++\ld_37_codebase\src
 
-set libs=SDL2main.lib SDL2.lib
+set libs=SDL2main.lib SDL2.lib SDL2_image.lib
 set source_files=%src_dir%\ld_37.cpp
 set macros=
 set compiler_flags=/Zi /MD 

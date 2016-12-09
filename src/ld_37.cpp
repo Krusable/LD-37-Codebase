@@ -1,5 +1,16 @@
 
+/*
+    TODO For LD:
+    - Load pngs
+    - Render textures
+    - Render sub textures
+    - load map files
+    - load audio files
+    - play sound effects & music 
+*/
+
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 #include <stdio.h>
 #include <time.h>
@@ -31,6 +42,12 @@ typedef struct {
     SDL_Texture* texture;
 } Display;
 
+typedef struct {
+    i32 width;
+    i32 height;
+    void* pixels;
+} Texture;
+
 typedef union {
     struct {
         f32 x;
@@ -61,6 +78,7 @@ typedef union {
 
 #define TARGET_MS_PER_FRAME 16
 #define CAP_FRAMERATE       1
+#define TRANSPARENT_COLOUR  0x00FF00FF
 
 u32 ColourVec4ToU32(Vec4* vec4_colour) {
     u8 a = vec4_colour->a * 255;
@@ -116,12 +134,100 @@ void RenderFilledRect(Display* display, Vec2* pos, Vec2* size, Vec4* vec4_colour
     RenderFilledRect(display, pos, size, ColourVec4ToU32(vec4_colour));
 }
 
+void RenderTexture(Display* display, Vec2* pos, Texture* texture) {
+    i32 x_min = pos->x * display->pixels_per_meter;
+    i32 x_max = x_min + texture->width;
+    i32 y_min = pos->y * display->pixels_per_meter;
+    i32 y_max = y_min + texture->width;
+
+    // Don't bother rendering if the texture is completly off the screen.
+    if(x_max < 0 || x_min >= display->width || x_max < 0 || x_min >= display->width) {
+        return;
+    }
+
+    for(i32 y = y_min, ty = 0; y < y_max; y++, ty++) {
+        for(i32 x = x_min, tx = 0; x < x_max; x++, tx++) {
+            if(x >= 0 && x < display->width && y >= 0 && y < display->height) {
+                u32* display_pixel = (u32*)display->pixel_buffer + (y * display->width) + x;
+                u32* texture_pixel = (u32*)texture->pixels + (ty * texture->width) + tx;
+                if(*texture_pixel != TRANSPARENT_COLOUR) {
+                    *display_pixel = *texture_pixel;
+                }
+            }
+        }
+    }
+}
+
+void RenderSubTexture(Display* display, Vec2* pos, Texture* texture, i32 sub_texture_x, i32 sub_texture_y, i32 sub_texture_w, i32 sub_texture_h) {
+    i32 x_min = pos->x * display->pixels_per_meter;
+    i32 x_max = x_min + sub_texture_w;
+    i32 y_min = pos->y * display->pixels_per_meter;
+    i32 y_max = y_min + sub_texture_h;
+
+    // Don't bother rendering if the texture is completly off the screen.
+    if(x_max < 0 || x_min >= display->width || x_max < 0 || x_min >= display->width) {
+        return;
+    }
+
+    for(i32 y = y_min, ty = sub_texture_y; y < y_max; y++, ty++) {
+        for(i32 x = x_min, tx = sub_texture_x; x < x_max; x++, tx++) {
+            if(x >= 0 && x < display->width && y >= 0 && y < display->height) {
+                u32* display_pixel = (u32*)display->pixel_buffer + (y * display->width) + x;
+                u32* texture_pixel = (u32*)texture->pixels + (ty * texture->width) + tx;
+                if(*texture_pixel != TRANSPARENT_COLOUR) {
+                    *display_pixel = *texture_pixel;
+                }
+            }
+        }
+    }
+}
+
+void LoadMeSomePNG(char* file_path, Texture* dst_texture, SDL_PixelFormat* pixel_format) {
+    SDL_assert(dst_texture->pixels);
+
+    SDL_Surface* loaded_texture = NULL;
+
+    loaded_texture = IMG_Load(file_path);
+    if(!loaded_texture) {
+        printf("Warning - could not load image '%s'.\n", file_path);
+        return;
+    }
+
+    SDL_Surface* corrected_texture = SDL_ConvertSurface(loaded_texture, pixel_format, 0);
+    if(!corrected_texture) {
+        printf("Warning - could not convert image. %s.\n", SDL_GetError());
+        return;
+    }
+
+    dst_texture->width = corrected_texture->w;
+    dst_texture->height = corrected_texture->h;
+    i32 tex_size = dst_texture->width * dst_texture->height;
+    dst_texture->pixels = malloc(tex_size * pixel_format->BytesPerPixel);
+    for(i32 i = 0; i < tex_size; i++) {
+        ((u32*)dst_texture->pixels)[i] = ((u32*)corrected_texture->pixels)[i];
+    }
+
+    SDL_FreeSurface(loaded_texture);
+    SDL_FreeSurface(corrected_texture);
+}
+
+void FreeTexture(Texture* texture) {
+    free(texture->pixels);
+    texture->pixels = 0;
+}
+
 i32 main(i32 argc, char** argv) {
     srand(time(0));
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) < 0) {
         printf("Error - Could not init SDL. SDL_Error: %s\n", SDL_GetError());
         return -1;
     }
+
+    int flags = IMG_INIT_PNG;
+    if(IMG_Init(flags) & flags != flags) {
+        printf("Error - Could not init SDL_Image. IMG_Error: %s\n", IMG_GetError());
+        return -1;
+    } \
 
     Display display = {0};
     display.width = 1024;
@@ -159,9 +265,9 @@ i32 main(i32 argc, char** argv) {
 
     bool running = true;
     SDL_Event event = {0};
-    Vec2 rect_pos = {100 / display.pixels_per_meter, 100 / display.pixels_per_meter};
-    Vec2 rect_size = {100 / display.pixels_per_meter, 100 / display.pixels_per_meter};
-    Vec4 rect_colour = {1.0f, 0.2f, 0.2f, 0.2f};
+    Vec2 player_pos = {300 / display.pixels_per_meter, 300 / display.pixels_per_meter};
+    Vec2 player_size = {100 / display.pixels_per_meter, 100 / display.pixels_per_meter};
+    Vec4 player_colour = {1.0f, 0.2f, 0.2f, 0.2f};
     f32 speed = 2 * ((f32)display.pixels_per_meter / (1000.0 / (f32)TARGET_MS_PER_FRAME));
     f32 last_delta = 0.0f;
 
@@ -169,6 +275,14 @@ i32 main(i32 argc, char** argv) {
     const i32 MAP_HEIGHT = 10;
     const f32 TILE_SIZE = 64.0 / (f32)display.pixels_per_meter;
     u32 tile_map[MAP_WIDTH * MAP_HEIGHT];
+
+    Vec2 font_rect_pos = {10.0 / (f32)display.pixels_per_meter, 10.0 / (f32)display.pixels_per_meter};
+    Vec2 font_rect_size = {10, 4};
+    Vec4 font_rect_colour = {1.0f, 0.8f, 0.8f, 0.8f};
+
+    Vec2 texture_pos = {1, 1};
+    Texture font_texture = {0};
+    LoadMeSomePNG("../res/textures/font_texture.png", &font_texture, display.pixel_format);
 
     for(i32 y = 0; y < MAP_HEIGHT; y++) {
         for(i32 x = 0; x < MAP_WIDTH; x++) {
@@ -192,17 +306,17 @@ i32 main(i32 argc, char** argv) {
         u8* key_states = (u8*)SDL_GetKeyboardState(0);
 
         if(key_states[SDL_SCANCODE_UP] && !key_states[SDL_SCANCODE_DOWN]) {
-            rect_pos.y -= speed * last_delta;
+            player_pos.y -= speed * last_delta;
         }
         else if(key_states[SDL_SCANCODE_DOWN] && !key_states[SDL_SCANCODE_UP]) {
-            rect_pos.y += speed * last_delta;
+            player_pos.y += speed * last_delta;
         }
 
         if(key_states[SDL_SCANCODE_LEFT] && !key_states[SDL_SCANCODE_RIGHT]) {
-            rect_pos.x -= speed * last_delta;
+            player_pos.x -= speed * last_delta;
         }
         else if(key_states[SDL_SCANCODE_RIGHT] && !key_states[SDL_SCANCODE_LEFT]) {
-            rect_pos.x += speed * last_delta;
+            player_pos.x += speed * last_delta;
         }
 
         SDL_RenderClear(display.renderer);
@@ -218,7 +332,10 @@ i32 main(i32 argc, char** argv) {
             }
         }
 
-        RenderFilledRect(&display, &rect_pos, &rect_size, &rect_colour);
+        RenderFilledRect(&display, &font_rect_pos, &font_rect_size, &font_rect_colour);
+        RenderFilledRect(&display, &player_pos, &player_size, &player_colour);
+        //RenderTexture(&display, &texture_pos, &font_texture);
+        RenderSubTexture(&display, &texture_pos, &font_texture, 32, 32, 32, 32);
 
         SDL_UpdateTexture(display.texture, 0, display.pixel_buffer, display.pixel_buffer_pitch);
         SDL_RenderCopy(display.renderer, display.texture, NULL, NULL);
@@ -237,6 +354,7 @@ i32 main(i32 argc, char** argv) {
         last_delta = ms_this_frame / 1000.0f;
     }
 
+    FreeTexture(&font_texture);
     free(display.pixel_buffer);
     SDL_DestroyTexture(display.texture);
     SDL_DestroyRenderer(display.renderer);
