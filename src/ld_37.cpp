@@ -46,49 +46,7 @@ i32 main(i32 argc, char** argv) {
 
     bool running = true;
     SDL_Event event = {0};
-    Vec2 player_pos = {300 / display.pixels_per_meter, 300 / display.pixels_per_meter};
-    Vec2 player_size = {100 / display.pixels_per_meter, 100 / display.pixels_per_meter};
-    u32 player_colour = 0xFF111111;
-    f32 speed = 2 * ((f32)display.pixels_per_meter / (1000.0 / (f32)TARGET_MS_PER_FRAME));
-    f32 last_delta = 0.0f;
 
-    const i32 MAP_WIDTH = 17;
-    const i32 MAP_HEIGHT = 10;
-    const f32 TILE_SIZE = 64.0 / (f32)display.pixels_per_meter;
-    u32 tile_map[MAP_WIDTH * MAP_HEIGHT];
-
-    Vec2 font_rect_pos = {10.0 / (f32)display.pixels_per_meter, 10.0 / (f32)display.pixels_per_meter};
-    Vec2 font_rect_size = {10, 4};
-    u32 font_rect_colour = 0xFFAAAAAA;
-
-    Vec2 test_string_pos = {1.1, 1.1};
-
-    Font test_font = {0};
-    LoadFont(&test_font, display.pixel_format);
-
-    Mix_Music* music = Mix_LoadMUS("../res/music/music.wav");
-    if(!music){
-        printf("Failed to load music SDL_mixer Error: %s\n", Mix_GetError());
-        return -1;
-    }
-
-    Mix_Chunk* best_sound = Mix_LoadWAV("../res/sounds/best_sound.wav" );;
-    
-    if(!best_sound) {
-        printf( "Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError() );
-        return 0;
-    }
-
-    for(i32 y = 0; y < MAP_HEIGHT; y++) {
-        for(i32 x = 0; x < MAP_WIDTH; x++) {
-            u8 r = rand() % 255;
-            u8 g = rand() % 255;
-            u8 b = rand() % 255;
-            tile_map[(y * MAP_WIDTH) + x] = (u32)(0xFF | (r << 16) | (g << 8) | b);
-        }
-    }
-
-    Mix_PlayMusic(music, -1);
     while(running) {
         i32 ms_before = SDL_GetTicks();
         while(SDL_PollEvent(&event)) {
@@ -99,42 +57,10 @@ i32 main(i32 argc, char** argv) {
             }
         }
 
-        u8* key_states = (u8*)SDL_GetKeyboardState(0);
-
-        if(key_states[SDL_SCANCODE_UP] && !key_states[SDL_SCANCODE_DOWN]) {
-            player_pos.y -= speed * last_delta;
-        }
-        else if(key_states[SDL_SCANCODE_DOWN] && !key_states[SDL_SCANCODE_UP]) {
-            player_pos.y += speed * last_delta;
-        }
-
-        if(key_states[SDL_SCANCODE_LEFT] && !key_states[SDL_SCANCODE_RIGHT]) {
-            player_pos.x -= speed * last_delta;
-        }
-        else if(key_states[SDL_SCANCODE_RIGHT] && !key_states[SDL_SCANCODE_LEFT]) {
-            player_pos.x += speed * last_delta;
-        }
-
-        if(key_states[SDL_SCANCODE_SPACE]) {
-            Mix_PlayChannel(-1, best_sound, 0);
-        }
- 
         SDL_RenderClear(display.renderer);
         for(i32 i = 0; i < display.height * display.width; i++) {
             *((u32*)display.pixel_buffer + i) = 0xFF00FFFF;
         }
-
-        for(i32 y = 0; y < MAP_HEIGHT; y++) {
-            for(i32 x = 0; x < MAP_WIDTH; x++) {
-                Vec2 pos = {x * TILE_SIZE, y * TILE_SIZE};
-                Vec2 size = {TILE_SIZE, TILE_SIZE};
-                RenderFilledRect(&display, &pos, &size, tile_map[(y * MAP_WIDTH) + x]);
-            }
-        }
-
-        RenderFilledRect(&display, &font_rect_pos, &font_rect_size, font_rect_colour);
-        RenderString(&display, &test_font, &test_string_pos, "TEST 123 ABC", 0xFFE7E7E7);
-        RenderFilledRect(&display, &player_pos, &player_size, player_colour);
 
         SDL_UpdateTexture(display.texture, 0, display.pixel_buffer, display.pixel_buffer_pitch);
         SDL_RenderCopy(display.renderer, display.texture, NULL, NULL);
@@ -153,17 +79,10 @@ i32 main(i32 argc, char** argv) {
         last_delta = ms_this_frame / 1000.0f;
     }
 
-    Mix_FreeChunk(best_sound);
-    Mix_FreeMusic(music);
-    FreeFont(&test_font);
-    free(display.pixel_buffer);
-    SDL_DestroyTexture(display.texture);
-    SDL_DestroyRenderer(display.renderer);
-    SDL_DestroyWindow(display.window);
-    display = {0};
-    IMG_Quit();
-    Mix_CloseAudio();
-    SDL_Quit();
+    // Freeing stuff is overrated
+    //IMG_Quit();
+    //Mix_CloseAudio();
+    //SDL_Quit();
 
     return 0;
 }
