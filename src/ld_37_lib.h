@@ -11,6 +11,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 
 #include <stdio.h>
 #include <time.h>
@@ -93,6 +94,28 @@ typedef struct {
 
 #define TRANSPARENT_COLOUR      0x00FF00FF
 #define REPLACEMENT_COLOUR_1    0x00000000
+#define FREQUENCY               44100
+#define SAMPLE_SIZE             2048 // May need to adjust
+
+i32 InitSDL() {
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS | SDL_INIT_AUDIO) < 0) {
+        printf("Error - Could not init SDL. SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
+    int flags = IMG_INIT_PNG;
+    if(IMG_Init(flags) & flags != flags) {
+        printf("Error - Could not init SDL_Image. IMG_Error: %s\n", IMG_GetError());
+        return -1;
+    }
+
+    if(Mix_OpenAudio(FREQUENCY, MIX_DEFAULT_FORMAT, 2, SAMPLE_SIZE) < 0) {
+        printf("Error - Could not initalize SDL_Mixer. Mix_Error: %s\n", Mix_GetError());
+        return -1;
+    }
+
+    return 0;
+}
 
 u32 ColourVec4ToU32(Vec4* vec4_colour) {
     u8 a = vec4_colour->a * 255;

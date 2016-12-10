@@ -1,10 +1,4 @@
 
-/*
-    TODO For LD:
-    - load audio files
-    - play sound effects & music 
-*/
-
 #include "ld_37_lib.h"
 
 #define TARGET_MS_PER_FRAME 16
@@ -12,14 +6,7 @@
 
 i32 main(i32 argc, char** argv) {
     srand(time(0));
-    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) < 0) {
-        printf("Error - Could not init SDL. SDL_Error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-    int flags = IMG_INIT_PNG;
-    if(IMG_Init(flags) & flags != flags) {
-        printf("Error - Could not init SDL_Image. IMG_Error: %s\n", IMG_GetError());
+    if(InitSDL() < 0) {
         return -1;
     }
 
@@ -79,6 +66,19 @@ i32 main(i32 argc, char** argv) {
     Font test_font = {0};
     LoadFont(&test_font, display.pixel_format);
 
+    Mix_Music* music = Mix_LoadMUS("../res/music/music.wav");
+    if(!music){
+        printf("Failed to load music SDL_mixer Error: %s\n", Mix_GetError());
+        return -1;
+    }
+
+    Mix_Chunk* best_sound = Mix_LoadWAV("../res/sounds/best_sound.wav" );;
+    
+    if(!best_sound) {
+        printf( "Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError() );
+        return 0;
+    }
+
     for(i32 y = 0; y < MAP_HEIGHT; y++) {
         for(i32 x = 0; x < MAP_WIDTH; x++) {
             u8 r = rand() % 255;
@@ -88,6 +88,7 @@ i32 main(i32 argc, char** argv) {
         }
     }
 
+    Mix_PlayMusic(music, -1);
     while(running) {
         i32 ms_before = SDL_GetTicks();
         while(SDL_PollEvent(&event)) {
@@ -114,6 +115,10 @@ i32 main(i32 argc, char** argv) {
             player_pos.x += speed * last_delta;
         }
 
+        if(key_states[SDL_SCANCODE_SPACE]) {
+            Mix_PlayChannel(-1, best_sound, 0);
+        }
+ 
         SDL_RenderClear(display.renderer);
         for(i32 i = 0; i < display.height * display.width; i++) {
             *((u32*)display.pixel_buffer + i) = 0xFF00FFFF;
@@ -148,12 +153,16 @@ i32 main(i32 argc, char** argv) {
         last_delta = ms_this_frame / 1000.0f;
     }
 
+    Mix_FreeChunk(best_sound);
+    Mix_FreeMusic(music);
     FreeFont(&test_font);
     free(display.pixel_buffer);
     SDL_DestroyTexture(display.texture);
     SDL_DestroyRenderer(display.renderer);
     SDL_DestroyWindow(display.window);
     display = {0};
+    IMG_Quit();
+    Mix_CloseAudio();
     SDL_Quit();
 
     return 0;
